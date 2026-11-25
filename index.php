@@ -4,14 +4,16 @@
  * Exibe indicadores rápidos e os incidentes mais recentes.
  */
 
+// Carrega conexão com o banco (PDO) e funções de sessão/autenticação
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/auth.php';
 
+// Garante que apenas usuários autenticados acessem o dashboard
 exigir_login();
 
 $pdo = conectar_banco();
 
-// Indicadores consolidados para os cards do painel
+// Consulta agregada em uma única query para montar os KPIs de incidentes (total, ativos e críticos)
 $resumo = $pdo->query("
     SELECT
         COUNT(*) AS total_incidentes,
@@ -20,10 +22,11 @@ $resumo = $pdo->query("
     FROM incidentes
 ")->fetch();
 
+// Contagens rápidas de ativos monitorados e vulnerabilidades (CVEs) cadastradas
 $totalAtivos = (int) $pdo->query('SELECT COUNT(*) FROM ativos')->fetchColumn();
 $totalVulns  = (int) $pdo->query('SELECT COUNT(*) FROM vulnerabilidades')->fetchColumn();
 
-// Últimos 6 incidentes registrados
+// Busca os 6 incidentes mais recentes cruzando com as tabelas ativos e categorias_ameaca (INNER JOIN)
 $ultimosIncidentes = $pdo->query("
     SELECT
         i.id,
@@ -41,6 +44,7 @@ $ultimosIncidentes = $pdo->query("
     LIMIT 6
 ")->fetchAll();
 
+// Define metadados usados pelo layout em includes/header.php (título da aba e item ativo do menu)
 $tituloPagina = 'Painel Geral';
 $menuAtivo = 'painel';
 require_once __DIR__ . '/includes/header.php';

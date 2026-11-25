@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Lista todas as CVEs com INNER JOIN em ativos, priorizando a ordenação da severidade Crítica até Baixa via FIELD()
 $vulnerabilidades = $pdo->query("
     SELECT
         v.id,

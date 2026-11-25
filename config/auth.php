@@ -3,8 +3,11 @@
  * Middleware de autenticação, controle de sessão e funções auxiliares globais.
  */
 
+// Inicia a sessão PHP apenas se ainda não estiver ativa nesta requisição
 if (session_status() === PHP_SESSION_NONE) {
-    // Configurações básicas de segurança para o cookie de sessão
+    // Configurações de segurança para o cookie de sessão:
+    // - httponly: impede acesso ao cookie via JavaScript (mitiga roubo de sessão por XSS)
+    // - samesite=Lax: protege contra envio indevido do cookie em requisições cross-site (CSRF)
     session_set_cookie_params([
         'httponly' => true,
         'samesite' => 'Lax',
@@ -21,11 +24,13 @@ function base_url(string $caminho = ''): string
     static $prefixo = null;
 
     if ($prefixo === null) {
+        // Compara o caminho físico da raiz do projeto com o DOCUMENT_ROOT do Apache
         $raizProjeto = str_replace('\\', '/', realpath(dirname(__DIR__)) ?: dirname(__DIR__));
         $docRoot = str_replace('\\', '/', realpath($_SERVER['DOCUMENT_ROOT'] ?? '') ?: ($_SERVER['DOCUMENT_ROOT'] ?? ''));
 
         $prefixo = '';
         if ($docRoot !== '' && stripos($raizProjeto, $docRoot) === 0) {
+            // Extrai apenas o nome da subpasta relativa (ex.: "Trabalho-PHP") e codifica para URL
             $relativo = trim(substr($raizProjeto, strlen($docRoot)), '/');
             if ($relativo !== '') {
                 $segmentos = array_map('rawurlencode', explode('/', $relativo));
@@ -39,7 +44,7 @@ function base_url(string $caminho = ''): string
 }
 
 /**
- * Redireciona para uma rota interna da aplicação.
+ * Envia cabeçalho HTTP Location e encerra a execução imediatamente para evitar vazamento de conteúdo.
  */
 function redirecionar(string $caminho): never
 {
@@ -48,7 +53,7 @@ function redirecionar(string $caminho): never
 }
 
 /**
- * Verifica se há usuário autenticado na sessão.
+ * Verifica se há usuário autenticado na sessão (ID válido armazenado em $_SESSION).
  */
 function esta_logado(): bool
 {
@@ -56,7 +61,8 @@ function esta_logado(): bool
 }
 
 /**
- * Middleware obrigatório para proteger todas as páginas internas do sistema.
+ * Middleware obrigatório chamado no topo de todas as páginas internas.
+ * Bloqueia acesso anônimo e redireciona para a tela de login com aviso.
  */
 function exigir_login(): void
 {

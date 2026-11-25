@@ -10,14 +10,17 @@ exigir_login();
 
 $pdo = conectar_banco();
 $usuarioAtual = usuario_logado();
+// Identifica modo edição (?id=N) e permite pré-selecionar um incidente quando vindo da tela do incidente
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $incidentePreSelecionado = isset($_GET['incidente_id']) ? (int) $_GET['incidente_id'] : 0;
 $editando = ($id > 0);
 $erros = [];
 
+// Carrega incidentes e analistas para popular os <select> do formulário
 $incidentes = $pdo->query('SELECT id, titulo FROM incidentes ORDER BY id DESC')->fetchAll();
 $usuarios   = $pdo->query('SELECT id, nome FROM usuarios ORDER BY nome ASC')->fetchAll();
 
+// Valores padrão (analista logado e data/hora atual)
 $dados = [
     'incidente_id'   => $incidentePreSelecionado > 0 ? (string) $incidentePreSelecionado : '',
     'usuario_id'     => (string) ($usuarioAtual['id'] ?? ''),
@@ -25,6 +28,7 @@ $dados = [
     'data_acao'      => date('Y-m-d\TH:i'),
 ];
 
+// Em modo edição, busca a ação existente no banco para preencher o formulário
 if ($editando) {
     $stmt = $pdo->prepare('SELECT * FROM acoes_mitigacao WHERE id = :id');
     $stmt->execute([':id' => $id]);
@@ -43,6 +47,7 @@ if ($editando) {
     ];
 }
 
+// Processamento do formulário (validação no servidor + INSERT ou UPDATE)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['incidente_id']   = (string) ((int) ($_POST['incidente_id'] ?? 0));
     $dados['usuario_id']     = (string) ((int) ($_POST['usuario_id'] ?? 0));
@@ -63,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($erros)) {
+        // Formata a data para o padrão DATETIME do MySQL
         $dataSql = date('Y-m-d H:i:s', strtotime($dados['data_acao']));
 
         if ($editando) {

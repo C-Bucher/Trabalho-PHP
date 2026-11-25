@@ -9,8 +9,10 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Filtro opcional recebido pela URL (?incidente_id=N) para exibir apenas mitigações de um incidente específico
 $incidenteId = isset($_GET['incidente_id']) ? (int) $_GET['incidente_id'] : 0;
 
+// Consulta o histórico de ações de mitigação juntando com o título do incidente e o nome do analista
 $sql = "
     SELECT
         m.id,
@@ -25,11 +27,13 @@ $sql = "
 ";
 $params = [];
 
+// Se um incidente foi especificado na URL, restringe a listagem usando Prepared Statement
 if ($incidenteId > 0) {
     $sql .= ' WHERE m.incidente_id = :incidente_id';
     $params[':incidente_id'] = $incidenteId;
 }
 
+// Ordena da ação mais recente para a mais antiga
 $sql .= ' ORDER BY m.data_acao DESC, m.id DESC';
 
 $stmt = $pdo->prepare($sql);

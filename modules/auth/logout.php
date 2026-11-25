@@ -5,8 +5,10 @@
 
 require_once __DIR__ . '/../../config/auth.php';
 
+// 1. Limpa todas as variáveis armazenadas em memória na sessão atual
 $_SESSION = [];
 
+// 2. Expira o cookie de sessão no navegador (definindo validade no passado)
 if (ini_get('session.use_cookies')) {
     $params = session_get_cookie_params();
     setcookie(
@@ -20,9 +22,10 @@ if (ini_get('session.use_cookies')) {
     );
 }
 
+// 3. Destrói o arquivo/registro de sessão no servidor
 session_destroy();
 
-// Inicia nova sessão limpa apenas para exibir a mensagem de feedback na tela de login
+// 4. Inicia nova sessão limpa apenas para exibir a mensagem de feedback na tela de login
 session_start();
 definir_flash('info', 'Sessão encerrada com sucesso.');
 redirecionar('modules/auth/login.php');

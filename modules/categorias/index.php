@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Lista todas as categorias de ameaça junto com o total de incidentes classificados em cada uma
 $categorias = $pdo->query("
     SELECT
         c.*,

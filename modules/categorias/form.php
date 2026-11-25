@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Identifica se o formulário está editando (?id=N) ou criando uma nova categoria
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $editando = ($id > 0);
 $erros = [];
@@ -18,6 +19,7 @@ $dados = [
     'descricao' => '',
 ];
 
+// Em edição, carrega os dados da categoria pelo ID
 if ($editando) {
     $stmt = $pdo->prepare('SELECT * FROM categorias_ameaca WHERE id = :id');
     $stmt->execute([':id' => $id]);
@@ -31,6 +33,7 @@ if ($editando) {
     $dados = $registro;
 }
 
+// Processamento do POST: valida nome obrigatório e trata violação de UNIQUE (SQLSTATE 23000)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['nome']      = trim($_POST['nome'] ?? '');
     $dados['descricao'] = trim($_POST['descricao'] ?? '');
@@ -59,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirecionar('modules/categorias/index.php');
         } catch (PDOException $e) {
+            // SQLSTATE 23000 ocorre quando o nome já existe (restrição UNIQUE na coluna nome)
             if ($e->getCode() === '23000') {
                 $erros[] = 'Já existe uma categoria cadastrada com esse nome.';
             } else {

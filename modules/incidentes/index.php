@@ -11,14 +11,15 @@ exigir_login();
 
 $pdo = conectar_banco();
 
-// Captura e sanitiza filtros enviados via GET
+// Captura e remove espaços extras dos filtros da busca avançada enviados via GET
 $busca      = trim($_GET['busca'] ?? '');
 $severidade = trim($_GET['severidade'] ?? '');
 $status     = trim($_GET['status'] ?? '');
 $dataInicio = trim($_GET['data_inicio'] ?? '');
 $dataFim    = trim($_GET['data_fim'] ?? '');
 
-// Montagem dinâmica e segura da query com Prepared Statements
+// Query base com INNER JOIN em ativos, categorias e usuários + subconsulta para contar mitigações
+// O padrão "WHERE 1=1" permite anexar cláusulas "AND ..." dinamicamente sem preocupar-se com o primeiro WHERE
 $sql = "
     SELECT
         i.id,
@@ -40,28 +41,28 @@ $sql = "
 ";
 $params = [];
 
-// Filtro 1 (Texto - LIKE): título do incidente ou IP do ativo
+// Filtro 1 (Tipo Texto - LIKE): pesquisa parcial no título do incidente OU no IP do ativo
 if ($busca !== '') {
     $sql .= ' AND (i.titulo LIKE :busca_titulo OR a.endereco_ip LIKE :busca_ip)';
     $params[':busca_titulo'] = '%' . $busca . '%';
     $params[':busca_ip']     = '%' . $busca . '%';
 }
 
-// Filtro 2 (Seleção - =): severidade
+// Filtro 2 (Tipo Seleção/ENUM): valida contra lista permitida (whitelist) antes de filtrar severidade
 $severidadesValidas = ['Baixa', 'Media', 'Alta', 'Critica'];
 if ($severidade !== '' && in_array($severidade, $severidadesValidas, true)) {
     $sql .= ' AND i.severidade = :severidade';
     $params[':severidade'] = $severidade;
 }
 
-// Filtro 3 (Seleção - =): status
+// Filtro 3 (Tipo Seleção/ENUM): valida status contra valores permitidos do ciclo de vida
 $statusValidos = ['Aberto', 'Em Analise', 'Contido', 'Resolvido'];
 if ($status !== '' && in_array($status, $statusValidos, true)) {
     $sql .= ' AND i.status = :status';
     $params[':status'] = $status;
 }
 
-// Filtro 4 (Data - intervalo): data_ocorrencia inicial e final
+// Filtro 4 (Tipo Intervalo de Datas): filtra data_ocorrencia do início do dia até o fim do dia selecionado
 if ($dataInicio !== '') {
     $sql .= ' AND i.data_ocorrencia >= :data_inicio';
     $params[':data_inicio'] = $dataInicio . ' 00:00:00';
@@ -71,13 +72,15 @@ if ($dataFim !== '') {
     $params[':data_fim'] = $dataFim . ' 23:59:59';
 }
 
+// Ordena dos incidentes mais recentes para os mais antigos
 $sql .= ' ORDER BY i.data_ocorrencia DESC, i.id DESC';
 
+// Executa com Prepared Statement (valores vinculados separadamente evitam SQL Injection)
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $incidentes = $stmt->fetchAll();
 
-// Mantém os filtros ativos na URL do botão Exportar PDF
+// Monta a query string com apenas os filtros preenchidos para repassar ao botão "Exportar PDF"
 $queryPdf = http_build_query(array_filter([
     'busca'       => $busca,
     'severidade'  => $severidade,

@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../config/auth.php';
 
 exigir_login();
 
+// Aceita exclusão apenas via POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirecionar('modules/categorias/index.php');
 }
@@ -21,6 +22,7 @@ if ($id > 0) {
         $stmt->execute([':id' => $id]);
         definir_flash('success', 'Categoria excluída com sucesso.');
     } catch (PDOException $e) {
+        // SQLSTATE 23000 indica que há incidentes vinculados a esta categoria (ON DELETE RESTRICT)
         if ($e->getCode() === '23000') {
             definir_flash('warning', 'Não é possível excluir esta categoria pois há incidentes associados a ela.');
         } else {

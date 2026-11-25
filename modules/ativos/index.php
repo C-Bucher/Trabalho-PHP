@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Lista todos os ativos ordenados por nome e usa subconsultas correlacionadas para contar incidentes e CVEs de cada um
 $ativos = $pdo->query("
     SELECT
         a.*,

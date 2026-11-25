@@ -12,7 +12,7 @@ exigir_login();
 
 $pdo = conectar_banco();
 
-// 1. Totais gerais
+// 1. Totais gerais calculados em uma única consulta SQL usando agregação condicional (SUM + CASE WHEN)
 $totais = $pdo->query("
     SELECT
         COUNT(*) AS total_incidentes,
@@ -22,13 +22,14 @@ $totais = $pdo->query("
     FROM incidentes
 ")->fetch();
 
+// Converte os resultados para inteiro e calcula o percentual de resolução evitando divisão por zero
 $totalIncidentes = (int) ($totais['total_incidentes'] ?? 0);
 $resolvidos      = (int) ($totais['resolvidos'] ?? 0);
 $pendentes       = (int) ($totais['pendentes'] ?? 0);
 $criticosAltos   = (int) ($totais['criticos_altos'] ?? 0);
 $taxaResolucao   = $totalIncidentes > 0 ? round(($resolvidos / $totalIncidentes) * 100, 1) : 0;
 
-// 2. Incidentes agrupados por severidade (COUNT + GROUP BY)
+// 2. Incidentes agrupados por severidade (COUNT + GROUP BY ordenado da maior para a menor gravidade via FIELD)
 $porSeveridade = $pdo->query("
     SELECT severidade, COUNT(*) AS total
     FROM incidentes
@@ -36,7 +37,7 @@ $porSeveridade = $pdo->query("
     ORDER BY FIELD(severidade, 'Critica', 'Alta', 'Media', 'Baixa')
 ")->fetchAll();
 
-// 3. Incidentes agrupados por status (COUNT + GROUP BY)
+// 3. Incidentes agrupados por status do ciclo de vida (Aberto -> Em Analise -> Contido -> Resolvido)
 $porStatus = $pdo->query("
     SELECT status, COUNT(*) AS total
     FROM incidentes
@@ -44,7 +45,8 @@ $porStatus = $pdo->query("
     ORDER BY FIELD(status, 'Aberto', 'Em Analise', 'Contido', 'Resolvido')
 ")->fetchAll();
 
-// 4. Ativos com mais ocorrências de incidentes (LEFT JOIN + COUNT + GROUP BY)
+// 4. Ranking de ativos com mais incidentes (LEFT JOIN mantém inclusive ativos com 0 incidentes)
+// Subconsulta correlacionada contabiliza quantas CVEs estão vinculadas a cada ativo
 $ativosMaisAfetados = $pdo->query("
     SELECT
         a.id,
@@ -60,7 +62,7 @@ $ativosMaisAfetados = $pdo->query("
     ORDER BY total_incidentes DESC, a.nome ASC
 ")->fetchAll();
 
-// 5. Incidentes por categoria de ameaça (COUNT + GROUP BY)
+// 5. Incidentes agrupados por categoria de ameaça (LEFT JOIN inclui categorias sem ocorrências)
 $porCategoria = $pdo->query("
     SELECT
         c.nome,

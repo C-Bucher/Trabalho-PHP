@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Identifica modo de edição (?id=N) ou criação (sem id) e lista as criticidades válidas do ENUM
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $editando = ($id > 0);
 $erros = [];
@@ -21,6 +22,7 @@ $dados = [
     'criticidade' => 'Media',
 ];
 
+// Em edição, carrega os dados atuais do ativo no banco
 if ($editando) {
     $stmt = $pdo->prepare('SELECT * FROM ativos WHERE id = :id');
     $stmt->execute([':id' => $id]);
@@ -34,6 +36,7 @@ if ($editando) {
     $dados = $registro;
 }
 
+// Processamento do envio do formulário via POST (validação + UPDATE/INSERT com Prepared Statements)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['nome']        = trim($_POST['nome'] ?? '');
     $dados['tipo']        = trim($_POST['tipo'] ?? '');
@@ -46,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($dados['tipo'] === '') {
         $erros[] = 'O tipo do ativo é obrigatório.';
     }
+    // filter_var com FILTER_VALIDATE_IP valida automaticamente endereços IPv4 e IPv6
     if ($dados['endereco_ip'] === '' || filter_var($dados['endereco_ip'], FILTER_VALIDATE_IP) === false) {
         $erros[] = 'Informe um endereço IP válido (IPv4 ou IPv6).';
     }

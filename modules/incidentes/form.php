@@ -12,19 +12,21 @@ exigir_login();
 $pdo = conectar_banco();
 $usuarioAtual = usuario_logado();
 
+// Se vier ?id=N na URL, o mesmo formulário opera em modo de edição (UPDATE); caso contrário, criação (INSERT)
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $editando = ($id > 0);
 $erros = [];
 
+// Listas permitidas (whitelist) correspondentes aos ENUMs da tabela incidentes
 $severidades = ['Baixa', 'Media', 'Alta', 'Critica'];
 $listaStatus = ['Aberto', 'Em Analise', 'Contido', 'Resolvido'];
 
-// Carrega listas relacionadas para preencher os <select>
+// Carrega registros das tabelas relacionadas para popular os campos <select> do formulário
 $ativos     = $pdo->query('SELECT id, nome, endereco_ip FROM ativos ORDER BY nome')->fetchAll();
 $categorias = $pdo->query('SELECT id, nome FROM categorias_ameaca ORDER BY nome')->fetchAll();
 $usuarios   = $pdo->query('SELECT id, nome FROM usuarios ORDER BY nome')->fetchAll();
 
-// Valores padrão do formulário
+// Valores iniciais do formulário (pré-seleciona data/hora atual e o analista logado)
 $dados = [
     'titulo'          => '',
     'descricao'       => '',
@@ -36,7 +38,7 @@ $dados = [
     'usuario_id'      => (string) ($usuarioAtual['id'] ?? ''),
 ];
 
-// Se estiver editando, carrega o registro atual
+// Em modo de edição, busca o incidente no banco e preenche os campos do formulário
 if ($editando) {
     $stmt = $pdo->prepare('SELECT * FROM incidentes WHERE id = :id');
     $stmt->execute([':id' => $id]);
@@ -47,6 +49,7 @@ if ($editando) {
         redirecionar('modules/incidentes/index.php');
     }
 
+    // Converte a data DATETIME do MySQL para o formato aceito pelo <input type="datetime-local">
     $dados = [
         'titulo'          => $registro['titulo'],
         'descricao'       => $registro['descricao'],
@@ -59,7 +62,7 @@ if ($editando) {
     ];
 }
 
-// Processamento do envio (POST)
+// Processamento do envio do formulário via POST (validação no servidor + persistência no MySQL)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['titulo']          = trim($_POST['titulo'] ?? '');
     $dados['descricao']       = trim($_POST['descricao'] ?? '');
@@ -70,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['categoria_id']    = (string) ((int) ($_POST['categoria_id'] ?? 0));
     $dados['usuario_id']      = (string) ((int) ($_POST['usuario_id'] ?? 0));
 
+    // Validações obrigatórias no backend (nunca confiar apenas no "required" do HTML)
     if ($dados['titulo'] === '') {
         $erros[] = 'O título do incidente é obrigatório.';
     }
@@ -95,7 +99,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erros[] = 'Selecione o analista responsável.';
     }
 
+    // Se passou em todas as validações, grava no banco via UPDATE ou INSERT preparado
     if (empty($erros)) {
+        // Converte data HTML (YYYY-MM-DDTHH:MM) para DATETIME do MySQL (YYYY-MM-DD HH:MM:SS)
         $dataSql = date('Y-m-d H:i:s', strtotime($dados['data_ocorrencia']));
 
         if ($editando) {
@@ -145,11 +151,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             definir_flash('success', 'Incidente registrado com sucesso.');
         }
 
+        // Padrão PRG (Post-Redirect-Get): evita reenvio duplicado se o usuário atualizar a página
         redirecionar('modules/incidentes/index.php');
     }
 }
 
-// Na edição, exibe o histórico de mitigações deste incidente
+// Na edição, carrega também a linha do tempo de ações de mitigação vinculadas a este incidente
 $mitigacoes = [];
 if ($editando) {
     $stmtMit = $pdo->prepare("

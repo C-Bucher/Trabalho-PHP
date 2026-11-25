@@ -9,8 +9,10 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Obtém o usuário autenticado para marcar o selo "Você" e ocultar o botão de autoexclusão
 $usuarioAtual = usuario_logado();
 
+// Seleciona apenas campos públicos (nunca traz senha_hash para a listagem)
 $usuarios = $pdo->query('SELECT id, nome, email, perfil, criado_em FROM usuarios ORDER BY nome ASC')->fetchAll();
 
 $tituloPagina = 'Usuários';

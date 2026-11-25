@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Identifica modo de edição (?id=N) ou criação e define os perfis permitidos (whitelist)
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $editando = ($id > 0);
 $erros = [];
@@ -20,6 +21,7 @@ $dados = [
     'perfil' => 'analista',
 ];
 
+// Em modo edição, busca os dados do usuário (sem expor senha_hash)
 if ($editando) {
     $stmt = $pdo->prepare('SELECT id, nome, email, perfil FROM usuarios WHERE id = :id');
     $stmt->execute([':id' => $id]);
@@ -33,6 +35,7 @@ if ($editando) {
     $dados = $registro;
 }
 
+// Processamento do envio via POST (validações + hash bcrypt da senha)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['nome']   = trim($_POST['nome'] ?? '');
     $dados['email']  = trim($_POST['email'] ?? '');
@@ -48,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($dados['perfil'], $perfis, true)) {
         $erros[] = 'Perfil inválido.';
     }
+    // Na criação a senha é obrigatória; na edição é opcional (se vazia, mantém a senha atual)
     if (!$editando && strlen($senha) < 6) {
         $erros[] = 'A senha deve ter no mínimo 6 caracteres.';
     }
@@ -59,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($editando) {
                 if ($senha !== '') {
+                    // Gera novo hash bcrypt apenas quando uma nova senha for informada
                     $hash = password_hash($senha, PASSWORD_BCRYPT);
                     $stmt = $pdo->prepare('UPDATE usuarios SET nome = :nome, email = :email, perfil = :perfil, senha_hash = :senha_hash WHERE id = :id');
                     $stmt->execute([
@@ -87,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 definir_flash('success', 'Usuário atualizado com sucesso.');
             } else {
+                // Armazena somente o hash bcrypt (nunca salva senha em texto puro)
                 $hash = password_hash($senha, PASSWORD_BCRYPT);
                 $stmt = $pdo->prepare('INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (:nome, :email, :senha_hash, :perfil)');
                 $stmt->execute([
@@ -100,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             redirecionar('modules/usuarios/index.php');
         } catch (PDOException $e) {
+            // SQLSTATE 23000 ocorre se o e-mail já estiver em uso (restrição UNIQUE)
             if ($e->getCode() === '23000') {
                 $erros[] = 'Já existe um usuário cadastrado com este e-mail.';
             } else {

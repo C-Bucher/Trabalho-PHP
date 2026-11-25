@@ -49,12 +49,15 @@ class RelatorioIncidentesPDF extends FPDF
     public string $resumoFiltros = 'Sem filtros aplicados (todos os incidentes)';
     public string $geradoPor = '';
 
+    // Método chamado automaticamente pelo FPDF no início de cada nova página
     public function Header(): void
     {
+        // Título principal do relatório
         $this->SetFont('Helvetica', 'B', 14);
         $this->SetTextColor(25, 32, 44);
         $this->Cell(0, 7, pdf_texto('Mini-SOC — Relatório de Incidentes de Segurança'), 0, 1, 'L');
 
+        // Metadados: data/hora de emissão, analista logado e resumo dos filtros aplicados
         $this->SetFont('Helvetica', '', 8.5);
         $this->SetTextColor(95, 105, 120);
         $this->Cell(
@@ -68,7 +71,7 @@ class RelatorioIncidentesPDF extends FPDF
         $this->Cell(0, 5, pdf_texto('Filtros: ' . $this->resumoFiltros), 0, 1, 'L');
         $this->Ln(3);
 
-        // Cabeçalho da tabela
+        // Cabeçalho da tabela (larguras somam 277 mm = largura útil do A4 Paisagem com margens de 10 mm)
         $this->SetFillColor(30, 38, 49);
         $this->SetTextColor(255, 255, 255);
         $this->SetDrawColor(190, 198, 210);
@@ -89,6 +92,7 @@ class RelatorioIncidentesPDF extends FPDF
         $this->SetDrawColor(215, 220, 228);
     }
 
+    // Método chamado automaticamente pelo FPDF no rodapé de cada página (com numeração)
     public function Footer(): void
     {
         $this->SetY(-12);
@@ -101,13 +105,14 @@ class RelatorioIncidentesPDF extends FPDF
 $pdo = conectar_banco();
 $usuarioAtual = usuario_logado();
 
-// Reaplica exatamente os mesmos filtros da tela de busca avançada
+// Reaplica exatamente os mesmos filtros enviados via GET pela tela de busca avançada
 $busca      = trim($_GET['busca'] ?? '');
 $severidade = trim($_GET['severidade'] ?? '');
 $status     = trim($_GET['status'] ?? '');
 $dataInicio = trim($_GET['data_inicio'] ?? '');
 $dataFim    = trim($_GET['data_fim'] ?? '');
 
+// Query base com INNER JOIN nas entidades relacionadas e WHERE 1=1 para concatenar filtros dinamicamente
 $sql = "
     SELECT
         i.id,
@@ -128,6 +133,7 @@ $sql = "
 $params = [];
 $filtrosTexto = [];
 
+// Aplica cada filtro informado com parâmetros nomeados (Prepared Statements) e registra no cabeçalho do PDF
 if ($busca !== '') {
     $sql .= ' AND (i.titulo LIKE :busca_titulo OR a.endereco_ip LIKE :busca_ip)';
     $params[':busca_titulo'] = '%' . $busca . '%';
@@ -163,11 +169,12 @@ if ($dataFim !== '') {
 
 $sql .= ' ORDER BY i.data_ocorrencia DESC, i.id DESC';
 
+// Executa a consulta filtrada no banco
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $incidentes = $stmt->fetchAll();
 
-// Monta o documento PDF em A4 Paisagem (largura útil = 277 mm)
+// Instancia e configura o documento PDF em A4 Paisagem (largura útil = 277 mm)
 $pdf = new RelatorioIncidentesPDF('L', 'mm', 'A4');
 $pdf->SetMargins(10, 12, 10);
 $pdf->SetAutoPageBreak(true, 16);
@@ -180,6 +187,7 @@ $pdf->AddPage();
 $pdf->SetFont('Helvetica', '', 8);
 $pdf->SetDrawColor(215, 220, 228);
 
+// Preenche as linhas da tabela com efeito zebrado (alternando cor de fundo entre branco e cinza claro)
 if (empty($incidentes)) {
     $pdf->SetTextColor(90, 95, 105);
     $pdf->Cell(277, 10, pdf_texto('Nenhum incidente encontrado para os filtros informados.'), 1, 1, 'C');
@@ -203,12 +211,13 @@ if (empty($incidentes)) {
         $alternar = !$alternar;
     }
 
-    // Linha de resumo total
+    // Linha final com totalizador de registros listados
     $pdf->Ln(3);
     $pdf->SetFont('Helvetica', 'B', 8.5);
     $pdf->SetTextColor(30, 38, 49);
     $pdf->Cell(277, 6, pdf_texto('Total de registros listados: ' . count($incidentes)), 0, 1, 'R');
 }
 
+// Envia o PDF inline ('I') para abrir diretamente no navegador com nome contendo data/hora
 $pdf->Output('I', 'mini-soc-incidentes-' . date('Ymd-His') . '.pdf');
 exit;

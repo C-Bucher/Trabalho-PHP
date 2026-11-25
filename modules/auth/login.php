@@ -15,6 +15,7 @@ if (esta_logado()) {
 $erro = '';
 $emailInformado = '';
 
+// Processa o envio do formulário de autenticação via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $emailInformado = trim($_POST['email'] ?? '');
     $senha = (string) ($_POST['senha'] ?? '');
@@ -22,23 +23,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($emailInformado === '' || $senha === '') {
         $erro = 'Informe o e-mail e a senha para entrar.';
     } else {
+        // Busca o usuário pelo e-mail usando Prepared Statement (proteção contra SQL Injection)
         $pdo = conectar_banco();
         $stmt = $pdo->prepare('SELECT id, nome, email, senha_hash, perfil FROM usuarios WHERE email = :email LIMIT 1');
         $stmt->execute([':email' => $emailInformado]);
         $usuario = $stmt->fetch();
 
+        // Verifica a senha digitada contra o hash bcrypt armazenado no banco
         if ($usuario && password_verify($senha, $usuario['senha_hash'])) {
-            // Proteção contra fixação de sessão
+            // Gera um novo ID de sessão após autenticar (proteção contra Session Fixation)
             session_regenerate_id(true);
 
+            // Salva os dados essenciais do usuário autenticado na sessão
             $_SESSION['usuario_id']     = (int) $usuario['id'];
             $_SESSION['usuario_nome']   = $usuario['nome'];
             $_SESSION['usuario_email']  = $usuario['email'];
             $_SESSION['usuario_perfil'] = $usuario['perfil'];
 
+            // Define mensagem de boas-vindas e redireciona para o painel principal
             definir_flash('success', 'Bem-vindo(a), ' . $usuario['nome'] . '!');
             redirecionar('index.php');
         } else {
+            // Mensagem genérica para não revelar se o e-mail existe ou não na base
             $erro = 'E-mail ou senha inválidos.';
         }
     }

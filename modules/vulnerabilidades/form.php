@@ -9,11 +9,13 @@ require_once __DIR__ . '/../../config/auth.php';
 exigir_login();
 
 $pdo = conectar_banco();
+// Define se o formulário está em modo de edição (?id=N) ou criação
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $editando = ($id > 0);
 $erros = [];
 $severidades = ['Baixa', 'Media', 'Alta', 'Critica'];
 
+// Carrega os ativos disponíveis para vincular a CVE via chave estrangeira (ativo_id)
 $ativos = $pdo->query('SELECT id, nome, endereco_ip FROM ativos ORDER BY nome ASC')->fetchAll();
 
 $dados = [
@@ -23,6 +25,7 @@ $dados = [
     'ativo_id'   => '',
 ];
 
+// Em edição, carrega os dados atuais da vulnerabilidade
 if ($editando) {
     $stmt = $pdo->prepare('SELECT * FROM vulnerabilidades WHERE id = :id');
     $stmt->execute([':id' => $id]);
@@ -41,6 +44,7 @@ if ($editando) {
     ];
 }
 
+// Processa o envio do formulário via POST (normaliza código CVE para maiúsculas, valida e persiste)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['codigo_cve'] = strtoupper(trim($_POST['codigo_cve'] ?? ''));
     $dados['titulo']     = trim($_POST['titulo'] ?? '');
