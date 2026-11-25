@@ -1,0 +1,9 @@
+{
+    "name": "academico/mini-soc",
+    "description": "Mini-SOC — Sistema de Gestão de Incidentes de Cibersegurança e Vulnerabilidades (PHP + MySQL + Bootstrap 5)",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "setasign/fpdf": "^1.8"
+    }
+}
